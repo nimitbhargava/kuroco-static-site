@@ -6,6 +6,7 @@ on:
   issue_comment:
     types: [created, edited]
   workflow_dispatch:
+    branches: [ main ]
 jobs:
   # for Pull Request (exclude merged)
   pullreq_build:
@@ -17,12 +18,17 @@ jobs:
         id: get_branch
         run: |
           PR=$(curl -H "Authorization: token 65faef737c2eb1fcd76b6164959d74ab" https://kemuri-static-site.g3.kuroco.app/direct/menu/github/?pr=${{ github.event.issue.pull_request.url }})
-          echo "branch=$(echo $PR | jq -r '.ref')" >> $GITHUB_OUTPUT
-          echo "sha=$(echo $PR | jq -r '.sha')" >> $GITHUB_OUTPUT
+          echo "::set-output name=branch::$(echo $PR | jq -r '.ref')"
+          echo "::set-output name=sha::$(echo $PR | jq -r '.sha')"
       - name: Checkout Repo
         uses: actions/checkout@v2
         with:
           ref: ${{ steps.get_branch.outputs.branch }}
+      - name: "Remove .git and .github"
+        id: remove_git_github
+        run: |
+          rm -rf .git
+          rm -rf .github
       - name: Archive Production Artifact
         uses: actions/upload-artifact@v2
         with:
@@ -32,11 +38,11 @@ jobs:
       - name: Wait for Artifact download
         run: sleep 15
       - name: Webhook
-        uses: diverta/workflow-webhook@v2
+        uses: distributhor/workflow-webhook@v1
         env:
           webhook_url: "https://kemuri-static-site.g3.kuroco.app/direct/menu/github/"
           webhook_secret: "65faef737c2eb1fcd76b6164959d74ab"
-          data: '{"single_zip":"0","domain":"kemuri-static-site.g3.kuroco-front.app","pr":"${{ github.event.issue.pull_request.url }}",  "repository":"${{ github.repository }}", "run_id":"${{ github.run_id }}", "hash":"${{ steps.get_branch.outputs.sha }}"}'
+          data: '{"domain":"kemuri-static-site.g3.kuroco-front.app","pr":"${{ github.event.issue.pull_request.url }}",  "repository":"${{ github.repository }}", "run_id":"${{ github.run_id }}", "hash":"${{ steps.get_branch.outputs.sha }}"}'
           
   #for Push
   pushed_build:
@@ -46,6 +52,11 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v2
+      - name: "Remove .git and .github"
+        id: remove_git_github
+        run: |
+          rm -rf .git
+          rm -rf .github
       - name: Archive Production Artifact
         uses: actions/upload-artifact@v2
         with:
@@ -53,8 +64,8 @@ jobs:
           path: ${{ github.workspace }}
           retention-days: 7
       - name: Webhook
-        uses: diverta/workflow-webhook@v2
+        uses: distributhor/workflow-webhook@v1
         env:
           webhook_url: "https://kemuri-static-site.g3.kuroco.app/direct/menu/github/"
           webhook_secret: "65faef737c2eb1fcd76b6164959d74ab"
-          data: '{"single_zip":"0","domain":"kemuri-static-site.g3.kuroco-front.app", "repository":"${{ github.repository }}", "run_id":"${{ github.run_id }}", "hash":"${{ github.sha }}"}'
+          data: '{"domain":"kemuri-static-site.g3.kuroco-front.app", "repository":"${{ github.repository }}", "run_id":"${{ github.run_id }}", "hash":"${{ github.sha }}"}'
